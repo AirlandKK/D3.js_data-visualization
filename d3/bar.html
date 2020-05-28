@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <style>
+      svg {
+        border: 1px solid lightgrey;
+      }
+      .box {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .title {
+        text-align: center;
+      }
+      .text {
+        color: #c1c1c1;
+        font-size: 12px;
+        /* transform: translate(460px, 12px); */
+      }
+    </style>
+    <div class="box">
+      <div>
+        <div class="title">cases</div>
+        <div class="car1"></div>
+      </div>
+      <div>
+        <div class="title">deaths</div>
+        <div class="car2"></div>
+      </div>
+      <div>
+        <div class="title">cases per million people</div>
+        <div class="car3"></div>
+      </div>
+      <div>
+        <div class="title">deaths per million people</div>
+        <div class="car4"></div>
+      </div>
+    </div>
+    <script src="http://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript">
+      const maxHeight = 600;
+      const maxWidth = 590;
+      const margin = {
+        top: 20,
+        right: 60,
+        bottom: 20,
+        left: 60,
+      };
+      const colorArray = ['#0074D9'];
+      function keyPlusValue(arr) {
+        var obj = {};
+        arr.forEach(function (value) {
+          const {
+            countriesAndTerritories,
+            cases,
+            deaths,
+            popData2018,
+            countryterritoryCode,
+          } = value;
+          if (obj.hasOwnProperty(countriesAndTerritories)) {
+            obj[countriesAndTerritories].cases += parseInt(cases);
+            obj[countriesAndTerritories].deaths += parseInt(deaths);
+          } else {
+            obj[countriesAndTerritories] = {
+              countriesAndTerritories: countriesAndTerritories,
+              countryterritoryCode,
+              cases: parseInt(cases),
+              deaths: parseInt(deaths),
+              popData2018: parseInt(popData2018),
+            };
+          }
+        });
+        return Object.values(obj);
+      }
+
+      function drawBar(type, data1, name) {
+        if (type === 'cases/million') {
+          data1.forEach((item) => {
+            item.label = item.countryterritoryCode;
+            item.value = item.cases * (1000000 / item.popData2018);
+          });
+        } else if (type === 'deaths/million') {
+          data1.forEach((item) => {
+            item.label = item.countryterritoryCode;
+            item.value = item.deaths * (1000000 / item.popData2018);
+          });
+        } else {
+          data1.forEach((item) => {
+            item.label = item.countryterritoryCode;
+            item.value = item[type];
+          });
+        }
+        const data2 = data1.sort((a, b) => b.value - a.value);
+        const data3 = data2.slice(0, 25);
+        console.log(data3);
+        renderHorizontalBars(data3, name);
+      }
+
+      d3.csv('./data/data.csv').then(function (data) {
+        const data1 = keyPlusValue(data);
+        console.log(data1);
+        drawBar('cases', data1, '.car1');
+        drawBar('deaths', data1, '.car2');
+        drawBar('cases/million', data1, '.car3');
+        drawBar('deaths/million', data1, '.car4');
+      });
+
+      function renderHorizontalBars(data, name) {
+        const barHeight = 15;
+        const yTicks = new Array(data.length + 1);
+        for (let i = 0; i <= data.length; i++) {
+          yTicks[i] = i;
+        }
+        const getX = (d) => d.value;
+        const getY = (d) => d.label;
+        const scaleY = d3
+          .scalePoint()
+          .domain(data.map(getY))
+          .range([0, maxHeight - margin.top - margin.bottom])
+          .padding(0.2);
+        const scaleX = d3
+          .scaleLinear()
+          .domain([0, d3.max(data, getX)])
+          .range([0, maxWidth - margin.left - margin.right]);
+        const svg = d3
+          .select(`body .box ${name}`)
+          .append('svg')
+          .attr('width', maxWidth)
+          .attr('height', maxHeight);
+        const bar = svg.selectAll('rect');
+
+        bar
+          .data(data)
+          .enter()
+          .append('rect')
+          .attr('x', margin.left)
+          .attr('y', (d) => scaleY(getY(d)) + margin.top - barHeight / 2)
+          .attr('width', (d) => scaleX(getX(d)))
+          .attr('height', barHeight)
+          .attr('fill', (d, i) => colorArray[i % colorArray.length])
+          .on('mousemove', moved)
+          .on('mouseover', entered)
+          .on('mouseout', left);
+
+        bar
+          .data(data)
+          .enter()
+          .append('text')
+          .attr('class', 'text')
+          .attr('x', margin.left + 20)
+          .attr('y', (d) => scaleY(getY(d)) + margin.top + 12 - barHeight / 2)
+          .text(function (d) {
+            return Number(d.value).toFixed(2);
+          });
+
+        const axisLeft = d3.axisLeft(scaleY);
+        svg
+          .append('g')
+          .attr('transform', `translate(${margin.left}, ${margin.top})`)
+          .call(axisLeft);
+        const axisBottom = d3.axisBottom(scaleX);
+        svg
+          .append('g')
+          .attr('transform', `translate(${margin.left}, ${maxHeight - margin.bottom})`)
+          .call(axisBottom);
+
+        function moved() {
+          d3.selectAll('rect').style('opacity', '0.65');
+          d3.selectAll('text').style('opacity', '0.65');
+          d3.select(this).style('opacity', '1');
+          d3.select(this).style('opacity', '1');
+        }
+        function entered() {
+          d3.selectAll('rect').style('opacity', '0.65');
+          d3.select(this).style('opacity', '1');
+        }
+
+        function left() {
+          d3.selectAll('rect').style('opacity', '1');
+        }
+      }
+    </script>
+  </body>
+</html>
